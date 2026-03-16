@@ -3,8 +3,8 @@
 import { useEffect, useRef } from "react";
 import * as three from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import vertexShader from "./shaders/vertexShader.glsl";
-import fragmentShader from "./shaders/fragmentShader.glsl";
+import vertexShader from "./shaders/vertexShader";
+import fragmentShader from "./shaders/fragmentShader";
 
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -53,18 +53,18 @@ export default function Home() {
     const backScene = new three.Scene();
 
     const sphere = new three.Mesh(
-      // new three.SphereGeometry(5, 10, 10),
+      new three.SphereGeometry(5, 5, 5),
 
-      new three.PlaneGeometry(10, 10),
+      // new three.PlaneGeometry(10, 10),
 
-      // new three.BoxGeometry(10, 10, 10),
+      // new three.BoxGeometry(5, 5, 5),
 
       // new three.MeshToonMaterial({ color: 0xffffff }),
       // new three.MeshBasicMaterial({ color: 0xffffff, wireframe: true }),
       new three.ShaderMaterial({
         vertexShader: vertexShader,
         fragmentShader: fragmentShader,
-        // wireframe: true,
+        wireframe: true,
         // glslVersion: three.GLSL3,
         side: three.DoubleSide,
       }),
@@ -79,7 +79,7 @@ export default function Home() {
     // backScene.add(cube2);
 
     function animate() {
-      // sphere.rotation.y += 0.001;
+      sphere.rotation.y += 0.001;
       // cube2.rotation.y += 0.001;
 
       canvasRenderer.render(canvasScene, camera);
