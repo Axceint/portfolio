@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as three from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import vertexShader from "./shaders/vertexShader";
@@ -9,6 +9,17 @@ import fragmentShader from "./shaders/fragmentShader";
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const backRef = useRef<HTMLCanvasElement | null>(null);
+  const [timeNow, setTimeNow] = useState<string | null>(
+    `(⌐■_■) uhm actually the time is`,
+  );
+  function updateTimeNow() {
+    let now = new Date();
+    let second = now.getSeconds();
+    let minute = now.getMinutes();
+    let hour = now.getHours();
+    let time = `${hour}:${minute}:${second}`;
+    setTimeNow(time);
+  }
 
   useEffect(() => {
     if (!canvasRef.current) {
@@ -42,7 +53,7 @@ export default function Home() {
       0.1,
       2000,
     );
-    camera.position.set(10, 10, 10);
+    camera.position.set(10, 0, 10);
     camera.lookAt(0, 0, 0);
 
     const orbit = new OrbitControls(camera, canvasRef.current);
@@ -53,9 +64,9 @@ export default function Home() {
     const backScene = new three.Scene();
 
     const sphere = new three.Mesh(
-      new three.SphereGeometry(5, 5, 5),
+      // new three.SphereGeometry(5, 5, 5),
 
-      // new three.PlaneGeometry(10, 10),
+      new three.PlaneGeometry(7.5, 7.5),
 
       // new three.BoxGeometry(5, 5, 5),
 
@@ -64,8 +75,8 @@ export default function Home() {
       new three.ShaderMaterial({
         vertexShader: vertexShader,
         fragmentShader: fragmentShader,
-        wireframe: true,
-        // glslVersion: three.GLSL3,
+        // wireframe: true,
+        glslVersion: three.GLSL3,
         side: three.DoubleSide,
       }),
     );
@@ -77,15 +88,17 @@ export default function Home() {
     );
     canvasScene.add(sphere);
     // backScene.add(cube2);
-
+    let timeId;
+    timeId = setInterval(updateTimeNow, 1000);
     function animate() {
-      sphere.rotation.y += 0.001;
+      // sphere.rotation.y += 0.001;
       // cube2.rotation.y += 0.001;
 
       canvasRenderer.render(canvasScene, camera);
       backRenderer.render(backScene, camera);
 
-      orbit.update();
+      // orbit.update();
+      console.log();
       requestAnimationFrame(animate);
     }
     animate();
@@ -127,7 +140,7 @@ export default function Home() {
               | EST-2025
             </span>
           </span>
-          <span className="pr-[2.5%]">10</span>
+          <span className="pr-[2.5%]">{timeNow}</span>
         </header>
 
         <main className=" h-full w-full m-[5%] flex flex-row items-center justify-center ">
