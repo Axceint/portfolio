@@ -1,24 +1,44 @@
 export default /* glsl */ `
 
+uniform sampler2D uTexture;
 uniform float uTime;
-in vec3 vPosition;
-in vec3 vNormal;
-in vec2 vUv;
+uniform float uRadius;
+uniform float uNbRows;
+uniform float uNbColumns;
 
+
+
+
+in vec3 vPosition;
 out vec4 outColor;
 
-void main() {
-vec3 color = normalize(vPosition)*0.5 +0.5;
-vec2 uv = vUv*100.0;
-uv -= vec2(0.5);
-vec3 viewDirection = normalize(cameraPosition-vPosition);
-float bdot = 1.0 - dot(viewDirection,vNormal);
-  
-outColor = vec4(step(0.99,1.0 - abs(vec3((vUv.y-0.5)))),1.0);
 
+void main() {
+
+vec2 pointUv = vec2(gl_PointCoord.x, 1.0 - gl_PointCoord.y);
+float texOffsetU = (vPosition.x/uNbColumns)+0.5;
+float texOffsetv = (vPosition.y/uNbRows)+0.5;
+
+vec2 tileOffset = vec2(
+    (vPosition.x / uNbColumns) + 0.5,
+    (vPosition.y / uNbRows) + 0.5
+);
+
+pointUv = tileOffset + (pointUv * vec2(1.0 / uNbColumns, 1.0 / uNbRows));
+
+
+
+
+
+vec4 texcol = texture(uTexture,pointUv);
+
+
+outColor = texcol;
+
+if(outColor.r<=0.1){
+discard;
+}
 
 }
 
 `;
-
-// outColor = vec4(vec3(mix(1.0, 0.1, vUv.x)), 1.0);
