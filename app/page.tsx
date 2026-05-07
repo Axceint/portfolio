@@ -485,12 +485,26 @@ export default function Home() {
             </span>
             <br />
             <div className="h-[10%] w-[50%] flex items-center justify-around font-mono">
+              {/*
               <button className="border pr-[5%] pl-[5%] pt-[2.5%] pb-[2.5%]">
                 BEGIN
               </button>
               <button className="border pr-[5%] pl-[5%] pt-[2.5%] pb-[2.5%]">
                 EXPLORE WORK
               </button>
+              */}
+              <a
+                className="border pr-[5%] pl-[5%] pt-[2.5%] pb-[2.5%]"
+                href="https://www.linkedin.com/in/axceint"
+              >
+                BEGIN
+              </a>
+              <a
+                className="border pr-[5%] pl-[5%] pt-[2.5%] pb-[2.5%]"
+                href="https://github.com/Axceint"
+              >
+                EXPLORE WORK
+              </a>
             </div>
             <div className="relative bottom-[-5%] right-[0%] opacity-25">
               <span className="text-[0.5rem]">AXCE_INT</span>
