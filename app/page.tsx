@@ -35,22 +35,41 @@ export default function Home() {
     // if (!canvasRef.current) {
     //   return;
     // }
-    if (!backRef.current) {
+    // if (!backRef.current) {
+    //   return;
+    // }
+    if (!backRef.current && !canvasRef.current) {
       return;
     }
 
     // Since canvasRef is commented out, let's use backRef for everything
-    let canvasHeight = backRef.current.clientHeight;
-    let canvasWidth = backRef.current.clientWidth;
-    let backHeight = backRef.current.clientHeight;
-    let backWidth = backRef.current.clientWidth;
+    // let canvasHeight = backRef.current.clientHeight;
+    // let canvasWidth = backRef.current.clientWidth;
+    // let backHeight = backRef.current.clientHeight;
+    // let backWidth = backRef.current.clientWidth;
+    let canvasHeight =
+      canvasRef.current?.clientHeight ?? backRef.current?.clientHeight ?? 0;
+    let canvasWidth =
+      canvasRef.current?.clientWidth ?? backRef.current?.clientWidth ?? 0;
+    let backHeight = backRef.current?.clientHeight ?? canvasHeight;
+    let backWidth = backRef.current?.clientWidth ?? canvasWidth;
 
-    const backRenderer = new three.WebGLRenderer({
-      canvas: backRef.current,
-      alpha: true,
-    });
-    backRenderer.setSize(canvasWidth, canvasHeight);
-    backRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    // const backRenderer = new three.WebGLRenderer({
+    //   canvas: backRef.current,
+    //   alpha: true,
+    // });
+    // backRenderer.setSize(canvasWidth, canvasHeight);
+    // backRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    const backRenderer = backRef.current
+      ? new three.WebGLRenderer({
+          canvas: backRef.current,
+          alpha: true,
+        })
+      : null;
+    if (backRenderer) {
+      backRenderer.setSize(backWidth, backHeight);
+      backRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    }
 
     // const canvasRenderer = new three.WebGLRenderer({
     //   canvas: canvasRef.current,
@@ -58,6 +77,16 @@ export default function Home() {
     // });
     // canvasRenderer.setSize(canvasWidth, canvasHeight);
     // canvasRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    const canvasRenderer = canvasRef.current
+      ? new three.WebGLRenderer({
+          canvas: canvasRef.current,
+          alpha: true,
+        })
+      : null;
+    if (canvasRenderer) {
+      canvasRenderer.setSize(canvasWidth, canvasHeight);
+      canvasRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    }
 
     const camera = new three.PerspectiveCamera(
       50,
@@ -68,9 +97,15 @@ export default function Home() {
     camera.position.set(0, 0, 250);
     camera.lookAt(0, 0, 0);
 
-    const orbit = new OrbitControls(camera, backRef.current);
-    orbit.enableDamping = true;
-    orbit.dampingFactor += 0.1;
+    // const orbit = new OrbitControls(camera, backRef.current);
+    const orbitDomElement = backRef.current ?? canvasRef.current;
+    const orbit = orbitDomElement
+      ? new OrbitControls(camera, orbitDomElement)
+      : null;
+    if (orbit) {
+      orbit.enableDamping = true;
+      orbit.dampingFactor += 0.1;
+    }
 
     const canvasScene = new three.Scene();
     const backScene = new three.Scene();
@@ -78,6 +113,132 @@ export default function Home() {
     //
     //
     //
+
+    // Particle sphere shaders for the main (50%) canvas
+    const sphereVertexShader = /* glsl */ `
+      uniform float uTime;
+      uniform float uWaveAmp;
+      uniform float uWaveFreq;
+      uniform float uHover;
+      uniform float uHoverBoost;
+      uniform float uHoverRadius;
+      uniform vec3 uHoverPoint;
+      uniform vec2 uMouseNdc;
+
+      in vec3 basePosition;
+      in float aPhase;
+
+      void main() {
+        vec3 pos = basePosition;
+        float wave = sin(uTime * uWaveFreq + aPhase) * uWaveAmp;
+        // float hover = uHover * smoothstep(uHoverRadius, 0.0, distance(basePosition.xy, uHoverPoint.xy));
+
+        // Use screen-space distance so hover is centered under the mouse
+        vec4 preProject = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+        vec2 ndc = preProject.xy / preProject.w;
+        float hover = uHover * smoothstep(uHoverRadius, 0.0, distance(ndc, uMouseNdc));
+
+        // Move strictly along view-space Z (toward camera) so spikes do not aim toward cursor
+        vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+        // Move toward camera (less negative z) so particles shoot up instead of sinking
+        mvPosition.z += (wave + hover * uHoverBoost);
+
+        gl_Position = projectionMatrix * mvPosition;
+        gl_PointSize = 2.0;
+      }
+    `;
+
+    const sphereFragmentShader = /* glsl */ `
+      precision highp float;
+      out vec4 outColor;
+
+      void main() {
+        vec2 uv = gl_PointCoord - vec2(0.5);
+        if (length(uv) > 0.5) discard;
+        outColor = vec4(1.0, 1.0, 1.0, 1.0);
+      }
+    `;
+
+    const sphereUniforms = {
+      uTime: { value: 0.0 },
+      uWaveAmp: { value: 1.5 },
+      uWaveFreq: { value: 2.0 },
+      uHover: { value: 0.0 },
+      uHoverBoost: { value: 30.0 },
+      uHoverRadius: { value: 0.2 },
+      uHoverPoint: { value: new three.Vector3(0, 0, 0) },
+      uMouseNdc: { value: new three.Vector2(0, 0) },
+    };
+
+    const sphereRadius = 90; // Change this number to adjust circle/sphere radius
+    // const sphereBase = new three.SphereGeometry(40, 64, 64);
+    const sphereBase = new three.SphereGeometry(sphereRadius, 64, 64);
+    const spherePosition = sphereBase.getAttribute("position");
+    const spherePhase = new Float32Array(spherePosition.count);
+    for (let i = 0; i < spherePhase.length; i++) {
+      spherePhase[i] = randFloat(0.0, Math.PI * 2.0);
+    }
+    sphereBase.setAttribute(
+      "basePosition",
+      new three.BufferAttribute(
+        new Float32Array(spherePosition.array as Float32Array),
+        3,
+      ),
+    );
+    sphereBase.setAttribute(
+      "aPhase",
+      new three.BufferAttribute(spherePhase, 1),
+    );
+
+    const sphereMaterial = new three.ShaderMaterial({
+      vertexShader: sphereVertexShader,
+      fragmentShader: sphereFragmentShader,
+      glslVersion: three.GLSL3,
+      uniforms: sphereUniforms,
+      transparent: true,
+      depthTest: true,
+      depthWrite: false,
+    });
+
+    const spherePoints = new three.Points(sphereBase, sphereMaterial);
+    canvasScene.add(spherePoints);
+
+    const raycaster = new three.Raycaster();
+    // Points raycasting needs a threshold; otherwise hover can feel broken
+    raycaster.params.Points.threshold = Math.max(2, sphereRadius * 0.05);
+    const mouse = new three.Vector2();
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!canvasRef.current || !canvasRenderer) {
+        return;
+      }
+
+      const rect = canvasRef.current.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      sphereUniforms.uMouseNdc.value.set(mouse.x, mouse.y);
+
+      raycaster.setFromCamera(mouse, camera);
+      const hits = raycaster.intersectObject(spherePoints);
+
+      if (hits.length > 0) {
+        const localPoint = spherePoints.worldToLocal(hits[0].point.clone());
+        sphereUniforms.uHover.value = 1.0;
+        sphereUniforms.uHoverPoint.value.copy(localPoint);
+      } else {
+        sphereUniforms.uHover.value = 0.0;
+      }
+    };
+
+    const handlePointerLeave = () => {
+      sphereUniforms.uHover.value = 0.0;
+    };
+
+    if (canvasRef.current) {
+      canvasRef.current.addEventListener("pointermove", handlePointerMove);
+      canvasRef.current.addEventListener("pointerleave", handlePointerLeave);
+    }
 
     const multiplier = 18;
 
@@ -217,11 +378,20 @@ export default function Home() {
 
       // Update shader time here
       shaderUniforms.uTime.value = clock.getElapsedTime();
+      sphereUniforms.uTime.value = clock.getElapsedTime();
 
       // canvasRenderer.render(canvasScene, camera);
-      backRenderer.render(backScene, camera);
+      // backRenderer.render(backScene, camera);
+      if (canvasRenderer) {
+        canvasRenderer.render(canvasScene, camera);
+      }
+      if (backRenderer) {
+        backRenderer.render(backScene, camera);
+      }
 
-      orbit.update();
+      if (orbit) {
+        orbit.update();
+      }
       // console.log(Math.floor((Date.now() % 10000) / 1000));
 
       // sphereMaterial.uniforms.uTime.value = (Date.now() % 10000) / 10000;
@@ -229,13 +399,32 @@ export default function Home() {
       requestAnimationFrame(animate);
     }
     animate();
+
+    return () => {
+      if (canvasRef.current) {
+        canvasRef.current.removeEventListener("pointermove", handlePointerMove);
+        canvasRef.current.removeEventListener(
+          "pointerleave",
+          handlePointerLeave,
+        );
+      }
+      if (orbit) {
+        orbit.dispose();
+      }
+      if (canvasRenderer) {
+        canvasRenderer.dispose();
+      }
+      if (backRenderer) {
+        backRenderer.dispose();
+      }
+    };
   }, []);
 
   return (
     <>
       <main className="h-screen w-screen pl-[2.5%] pr-[2.5%] pt-[1.5%] pb-[1.5%] flex flex-col items-center justify-center ">
-        <canvas ref={backRef} className="absolute h-full w-full "></canvas>
-        {/*
+        {/* <canvas ref={backRef} className="absolute h-full w-full "></canvas> */}
+
         <span
           className="top-[1%] right-[1%] border-t border-r p-5 absolute"
           style={{ borderColor: "rgba(255,255,255,0.5)" }}
@@ -253,7 +442,7 @@ export default function Home() {
           style={{ borderColor: "rgba(255,255,255,0.5)" }}
         ></span>
 
-        <nav className="border-b border-white/20">e</nav>
+        {/* <nav className="border-b border-white/20"></nav> */}
 
         <header
           className="border-b w-full h-fit flex flex-row items-center justify-between"
@@ -319,7 +508,6 @@ export default function Home() {
           </span>
           <span className="text-[0.5rem]">RENDERING FRAME: {"bleh :3"}</span>
         </footer>
-        */}
       </main>
     </>
   );
@@ -424,3 +612,6 @@ export default function Home() {
 // }
 
 // `;
+// export default function page() {
+//   return <></>;
+// }
